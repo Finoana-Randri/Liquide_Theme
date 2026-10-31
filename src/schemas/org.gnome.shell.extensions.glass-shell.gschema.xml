@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Every visual value has explicit bounds so a hand-edited dconf entry cannot break the shell. -->
+<schemalist>
+  <schema id="org.gnome.shell.extensions.glass-shell" path="/org/gnome/shell/extensions/glass-shell/">
+
+    <!-- Appearance -->
+    <key name="color-scheme" type="s">
+      <choices>
+        <choice value="system"/>
+        <choice value="light"/>
+        <choice value="dark"/>
+      </choices>
+      <default>'system'</default>
+      <summary>Glass colour scheme</summary>
+      <description>Follow the desktop colour scheme, or force a light or dark tint.</description>
+    </key>
+    <key name="light-opacity" type="i">
+      <range min="20" max="85"/>
+      <default>45</default>
+      <summary>Light tint opacity (percent)</summary>
+      <description>Opacity of the tinted layer only; icons and text stay fully opaque.</description>
+    </key>
+    <key name="dark-opacity" type="i">
+      <range min="20" max="85"/>
+      <default>40</default>
+      <summary>Dark tint opacity (percent)</summary>
+      <description>Opacity of the tinted layer only; icons and text stay fully opaque.</description>
+    </key>
+    <key name="blur-intensity" type="i">
+      <range min="0" max="100"/>
+      <default>60</default>
+      <summary>Blur intensity</summary>
+      <description>Internal 0-100 scale, converted to the blur radius of the running GNOME Shell.</description>
+    </key>
+    <key name="corner-radius" type="i">
+      <range min="0" max="40"/>
+      <default>24</default>
+      <summary>Corner radius in logical pixels</summary>
+    </key>
+    <key name="highlight-intensity" type="i">
+      <range min="0" max="100"/>
+      <default>50</default>
+      <summary>Top highlight intensity</summary>
+    </key>
+    <key name="corner-strategy" type="s">
+      <choices>
+        <choice value="inset"/>
+        <choice value="full"/>
+      </choices>
+      <default>'inset'</default>
+      <summary>How the blur is kept inside rounded corners</summary>
+      <description>"inset" shrinks the blurred area so it never leaks past the corners; "full" blurs the whole rectangle and is meant for prototype comparisons.</description>
+    </key>
+
+    <!-- Dock -->
+    <key name="apply-dock-preset" type="b">
+      <default>true</default>
+      <summary>Apply the bottom-centred dock preset</summary>
+      <description>Moves the dock to the bottom, stops it from spanning the screen and sets the icon size. The previous values are backed up once.</description>
+    </key>
+    <key name="icon-size" type="i">
+      <range min="32" max="64"/>
+      <default>48</default>
+      <summary>Dock icon size in logical pixels</summary>
+    </key>
+    <key name="icon-spacing" type="i">
+      <range min="0" max="24"/>
+      <default>8</default>
+      <summary>Space between dock icons in logical pixels</summary>
+    </key>
+    <key name="dock-padding" type="i">
+      <range min="0" max="24"/>
+      <default>10</default>
+      <summary>Inner padding of the dock surface in logical pixels</summary>
+    </key>
+    <key name="dock-margin" type="i">
+      <range min="0" max="48"/>
+      <default>12</default>
+      <summary>Gap between the dock and the screen edge in logical pixels</summary>
+    </key>
+    <key name="hover-magnification" type="b">
+      <default>true</default>
+      <summary>Enlarge dock icons on hover</summary>
+    </key>
+    <key name="allow-dash-to-dock" type="b">
+      <default>false</default>
+      <summary>Style Dash to Dock as well as Ubuntu Dock</summary>
+      <description>Dash to Dock shares the Ubuntu Dock code base but is not part of the reference configuration.</description>
+    </key>
+
+    <!-- Surfaces -->
+    <key name="surface-dock" type="b">
+      <default>true</default>
+      <summary>Glass on the dock</summary>
+    </key>
+    <key name="surface-top-bar" type="b">
+      <default>true</default>
+      <summary>Glass on the top bar</summary>
+    </key>
+    <key name="surface-quick-settings" type="b">
+      <default>true</default>
+      <summary>Glass on the quick settings menu</summary>
+    </key>
+    <key name="surface-calendar" type="b">
+      <default>true</default>
+      <summary>Glass on the calendar menu</summary>
+    </key>
+    <key name="surface-notifications" type="b">
+      <default>true</default>
+      <summary>Glass on notification banners</summary>
+    </key>
+
+    <!-- Performance and accessibility -->
+    <key name="performance-profile" type="s">
+      <choices>
+        <choice value="quality"/>
+        <choice value="balanced"/>
+        <choice value="economy"/>
+      </choices>
+      <default>'balanced'</default>
+      <summary>Graphics profile</summary>
+    </key>
+    <key name="reduce-effects" type="b">
+      <default>false</default>
+      <summary>Reduced effects</summary>
+      <description>Turns off blur, highlights and magnification, and makes surfaces more opaque.</description>
+    </key>
+    <key name="reduce-transparency" type="b">
+      <default>false</default>
+      <summary>Reduced transparency</summary>
+    </key>
+
+    <!-- Written by the extension, read by the preferences window. -->
+    <key name="diagnostics" type="as">
+      <default>[]</default>
+      <summary>Compatibility and conflict messages</summary>
+    </key>
+  </schema>
+</schemalist>

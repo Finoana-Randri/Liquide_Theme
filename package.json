@@ -1,0 +1,18 @@
+{
+  "name": "glass-shell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liquid glass surfaces for Ubuntu Dock and GNOME Shell (development tooling only).",
+  "license": "GPL-2.0-or-later",
+  "type": "module",
+  "scripts": {
+    "lint": "npm run lint:js && npm run lint:sh",
+    "lint:js": "eslint src eslint.config.js",
+    "lint:sh": "shellcheck -x scripts/*.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^10.14.0"
+  }
+}
