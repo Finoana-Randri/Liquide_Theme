@@ -16,30 +16,30 @@
     </key>
     <key name="light-opacity" type="i">
       <range min="20" max="85"/>
-      <default>45</default>
+      <default>32</default>
       <summary>Light tint opacity (percent)</summary>
       <description>Opacity of the tinted layer only; icons and text stay fully opaque.</description>
     </key>
     <key name="dark-opacity" type="i">
       <range min="20" max="85"/>
-      <default>40</default>
+      <default>42</default>
       <summary>Dark tint opacity (percent)</summary>
       <description>Opacity of the tinted layer only; icons and text stay fully opaque.</description>
     </key>
     <key name="blur-intensity" type="i">
       <range min="0" max="100"/>
-      <default>60</default>
+      <default>70</default>
       <summary>Blur intensity</summary>
       <description>Internal 0-100 scale, converted to the blur radius of the running GNOME Shell.</description>
     </key>
     <key name="corner-radius" type="i">
       <range min="0" max="40"/>
-      <default>24</default>
+      <default>22</default>
       <summary>Corner radius in logical pixels</summary>
     </key>
     <key name="highlight-intensity" type="i">
       <range min="0" max="100"/>
-      <default>50</default>
+      <default>70</default>
       <summary>Top highlight intensity</summary>
     </key>
     <key name="corner-strategy" type="s">
@@ -65,17 +65,17 @@
     </key>
     <key name="icon-spacing" type="i">
       <range min="0" max="24"/>
-      <default>8</default>
+      <default>6</default>
       <summary>Space between dock icons in logical pixels</summary>
     </key>
     <key name="dock-padding" type="i">
       <range min="0" max="24"/>
-      <default>10</default>
+      <default>8</default>
       <summary>Inner padding of the dock surface in logical pixels</summary>
     </key>
     <key name="dock-margin" type="i">
       <range min="0" max="48"/>
-      <default>12</default>
+      <default>10</default>
       <summary>Gap between the dock and the screen edge in logical pixels</summary>
     </key>
     <key name="hover-magnification" type="b">
@@ -104,6 +104,24 @@
     <key name="surface-calendar" type="b">
       <default>true</default>
       <summary>Glass on the calendar menu</summary>
+    </key>
+    <key name="surface-menus" type="b">
+      <default>true</default>
+      <summary>Glass on every other popup menu</summary>
+      <description>Top bar menus, dock context menus and window previews.</description>
+    </key>
+    <key name="surface-osd" type="b">
+      <default>true</default>
+      <summary>Glass on the volume and brightness pop-ups</summary>
+    </key>
+    <key name="surface-switcher" type="b">
+      <default>true</default>
+      <summary>Glass on the Alt+Tab switcher</summary>
+    </key>
+    <key name="macos-layout" type="b">
+      <default>true</default>
+      <summary>Desktop-style top bar</summary>
+      <description>Slimmer top bar with the clock on the right and notification banners in the top-right corner.</description>
     </key>
     <key name="surface-notifications" type="b">
       <default>true</default>

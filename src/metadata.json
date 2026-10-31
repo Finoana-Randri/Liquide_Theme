@@ -1,7 +1,7 @@
 {
   "uuid": "glass-shell@finoana-randri.github.io",
   "name": "Glass Shell",
-  "description": "Liquid glass surfaces for Ubuntu Dock and the GNOME Shell top bar, quick settings, calendar and notification banners. Real background blur, light tint, thin rim and soft shadow, while keeping the Ubuntu icons.",
+  "description": "Liquid glass surfaces for Ubuntu Dock, the top bar, every popup menu, notifications, the volume pop-up and Alt+Tab. Real background blur, light tint, inner glow and specular rim.",
   "shell-version": [
     "46",
     "47",
@@ -11,5 +11,5 @@
   ],
   "settings-schema": "org.gnome.shell.extensions.glass-shell",
   "url": "https://github.com/Finoana-Randri/Liquide_Theme",
-  "version-name": "0.1.0"
+  "version-name": "0.2.0"
 }

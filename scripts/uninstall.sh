@@ -60,6 +60,9 @@ fi
 
 restore_dock_settings
 
+# Put back the desktop theme settings changed by install-appearance.sh.
+"$(dirname "${BASH_SOURCE[0]}")/install-appearance.sh" --restore
+
 if [[ -d "$INSTALL_DIR" ]]; then
     rm -rf "$INSTALL_DIR"
     info "Removed $INSTALL_DIR"

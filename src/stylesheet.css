@@ -63,3 +63,33 @@
     background-color: transparent;
     box-shadow: none;
 }
+
+/* Desktop layout: a slimmer bar, closer to a classic desktop menu bar. */
+#panel.glass-shell-panel.glass-shell-desktop-layout {
+    height: 28px;
+    font-size: 0.95em;
+}
+
+#panel.glass-shell-panel.glass-shell-desktop-layout .panel-button {
+    -natural-hpadding: 10px;
+    -minimum-hpadding: 6px;
+}
+
+/* Menu rows get a soft translucent highlight instead of an opaque one. */
+.popup-menu-content.glass-shell-menu.glass-shell-dark .popup-menu-item:hover,
+.popup-menu-content.glass-shell-menu.glass-shell-dark .popup-menu-item:focus {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.popup-menu-content.glass-shell-menu.glass-shell-light .popup-menu-item:hover,
+.popup-menu-content.glass-shell-menu.glass-shell-light .popup-menu-item:focus {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Volume and brightness pop-up, Alt+Tab switcher. */
+.osd-window.glass-shell-osd,
+.switcher-list.glass-shell-switcher {
+    background-color: transparent;
+    box-shadow: none;
+    border-color: transparent;
+}

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.0 — 2026-10-31
+
+Design rework towards a current macOS-style desktop, checked with real
+screenshots of GNOME Shell 46 in Docker.
+
+- Glass material reworked: whiter and lighter tint, stronger blur, inner
+  glow layer and a crisp specular line along the top edge.
+- Glass on every popup menu (panel menus, dock context menus, window
+  previews), the volume pop-up (lifted above the dock) and Alt+Tab.
+- Slim top bar with the clock on the right; notification banners in the
+  top-right corner.
+- Dock: magnifying wave on neighbouring icons, applications button first,
+  small neutral running dots.
+- New `scripts/install-appearance.sh`: WhiteSur icons, cursors, GTK and
+  libadwaita theme, window buttons on the left, Inter font; fully reversible.
+- Fixed: rectangular shadow cut by the dock slide container; dimmed blur edge
+  in dark mode; quick settings glass never sized; menus never blurred because
+  BoxPointer is always redirected offscreen.
+- Visual test harness in `tests/visual/`.
+
 ## 0.1.0 — 2026-10-31
 
 First prototype, not yet run on the reference machine.

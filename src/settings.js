@@ -8,13 +8,13 @@ import GLib from 'gi://GLib';
 const CHANGE_DELAY_MS = 150;
 
 // Converts the 0-100 intensity to a Shell.BlurEffect radius in pixels.
-const BLUR_RADIUS_PER_POINT = 0.6;
+const BLUR_RADIUS_PER_POINT = 0.8;
 
 export const MAGNIFICATION = 1.12;
 
 const PROFILES = {
     quality: {blurFactor: 1, highlightFactor: 1, opacityBoost: 0, durationMs: 220},
-    balanced: {blurFactor: 0.75, highlightFactor: 0.8, opacityBoost: 0, durationMs: 180},
+    balanced: {blurFactor: 0.85, highlightFactor: 0.9, opacityBoost: 0, durationMs: 180},
     // No blur at all: the GPU cost is what this profile exists to remove.
     economy: {blurFactor: 0, highlightFactor: 0.5, opacityBoost: 0.2, durationMs: 160},
 };
@@ -85,8 +85,12 @@ export class GlassSettings {
                 topBar: s.get_boolean('surface-top-bar'),
                 quickSettings: s.get_boolean('surface-quick-settings'),
                 calendar: s.get_boolean('surface-calendar'),
+                menus: s.get_boolean('surface-menus'),
                 notifications: s.get_boolean('surface-notifications'),
+                osd: s.get_boolean('surface-osd'),
+                switcher: s.get_boolean('surface-switcher'),
             },
+            macosLayout: s.get_boolean('macos-layout'),
             profile: s.get_string('performance-profile'),
             reduceEffects: s.get_boolean('reduce-effects'),
             reduceTransparency: s.get_boolean('reduce-transparency'),
@@ -117,7 +121,7 @@ export function resolveLook(values, system) {
     let tintAlpha = (scheme === 'dark' ? values.darkOpacity : values.lightOpacity) / 100;
     let blurRadius = values.blurIntensity * BLUR_RADIUS_PER_POINT * profile.blurFactor;
     let highlight = (values.highlightIntensity / 100) * profile.highlightFactor;
-    let borderAlpha = scheme === 'dark' ? 0.16 : 0.42;
+    let borderAlpha = scheme === 'dark' ? 0.14 : 0.5;
     tintAlpha += profile.opacityBoost;
 
     if (values.reduceTransparency) {
@@ -149,13 +153,27 @@ export function resolveLook(values, system) {
         shellScheme: system.prefersDark ? 'dark' : 'light',
         tintAlpha: Math.min(0.95, tintAlpha),
         blurRadius,
-        blurBrightness: scheme === 'dark' ? 0.85 : 1,
+        // Darkening is left to the tint: a dimmed blur would show the edge of
+        // the inset blur rectangle as a visible step.
+        blurBrightness: 1,
         highlight,
         borderAlpha,
-        rimGlowAlpha: scheme === 'dark' ? 0.06 : 0.18,
-        shadow: true,
+        glowAlpha: scheme === 'dark' ? 0.05 : 0.22,
+        specularAlpha: scheme === 'dark' ? 0.28 : 0.9,
+        // Ubuntu Dock clips its children to the slide container, which cuts
+        // any outer shadow into a hard-edged rectangle, so none is drawn.
+        shadow: false,
         shadowAlpha: scheme === 'dark' ? 0.32 : 0.18,
         radius: values.cornerRadius,
+        // Smaller corners on small surfaces, as on a desktop with glass
+        // panels: menus are tighter than control panels and the dock.
+        radii: {
+            menu: Math.round(values.cornerRadius * 0.55),
+            panel: Math.round(values.cornerRadius * 0.9),
+            banner: Math.round(values.cornerRadius * 0.75),
+            osd: Math.round(values.cornerRadius * 0.8),
+            switcher: values.cornerRadius,
+        },
         cornerStrategy: values.cornerStrategy,
         highContrast: system.highContrast,
         animations,
@@ -168,6 +186,7 @@ export function resolveLook(values, system) {
         dockPadding: values.dockPadding,
         dockMargin: values.dockMargin,
         allowDashToDock: values.allowDashToDock,
+        macosLayout: values.macosLayout,
         surfaces: values.surfaces,
     };
 }

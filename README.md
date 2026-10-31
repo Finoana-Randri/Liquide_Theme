@@ -1,10 +1,16 @@
 # Glass Shell
 
-Liquid glass surfaces for GNOME Shell on Ubuntu: a floating, bottom-centred
-Ubuntu Dock and, optionally, the top bar, quick settings, calendar menu and
-notification banners. The surfaces use a real background blur, a light tint
-with a soft top reflection, a thin rim and a gentle shadow. Ubuntu/Yaru icons
-are kept as they are, and no Apple artwork, fonts or resources are used.
+Liquid glass surfaces for GNOME Shell on Ubuntu, for a desktop in the spirit
+of current macOS: a floating, bottom-centred Ubuntu Dock with a magnifying
+wave, a slim translucent top bar with the clock on the right, and glass on
+every popup menu, quick settings, the calendar, notification banners, the
+volume pop-up and the Alt+Tab switcher. The surfaces use a real background
+blur, a light tint with a static top reflection, an inner glow and a crisp
+specular rim.
+
+An optional script installs the matching application look from the
+open-source WhiteSur project (icons, cursors, GTK and libadwaita theme, window
+buttons on the left). No Apple artwork, fonts or resources are used anywhere.
 
 > **Status: prototype (0.1.0).** The code has not yet been run on the
 > reference machine. Step 1 and 2 of the specification (record the real
@@ -23,6 +29,25 @@ are kept as they are, and no Apple artwork, fonts or resources are used.
 
 X11, other docks and real refraction (pixel distortion) are out of scope for
 version 1.
+
+## Testing with real screenshots
+
+`tests/visual/` runs a real headless GNOME Shell 46 with Ubuntu Dock and the
+WhiteSur look in Docker, drives it with a test-only extension (virtual pointer
+and keyboard, real windows, menus, notifications, Alt+Tab, 20 enable/disable
+cycles) and saves screenshots to `tests/visual/out/`:
+
+```bash
+docker build -f tests/visual/Dockerfile -t glass-shell-test:noble .
+```
+
+```bash
+docker run --rm --user root --shm-size=1g -v "$PWD/src:/src:ro" -v "$PWD/tests/visual/harness:/harness:ro" -v "$PWD/tests/visual/session.sh:/session.sh:ro" -v "$PWD/tests/visual/entrypoint.sh:/entrypoint.sh:ro" -v "$PWD/tests/visual/out:/out" glass-shell-test:noble bash /entrypoint.sh
+```
+
+Rendering uses Mesa llvmpipe: the images are faithful, but frame timings from
+the container say nothing about real hardware. Selected captures are kept in
+[docs/captures](docs/captures).
 
 ## Repository layout
 
@@ -92,6 +117,28 @@ Preferences:
 ```bash
 gnome-extensions prefs glass-shell@finoana-randri.github.io
 ```
+
+## Desktop look (icons, windows, cursors)
+
+```bash
+scripts/install-appearance.sh --color light
+```
+
+Installs, for the current user only, pinned versions of the WhiteSur icon
+theme, cursors and GTK theme (from the prebuilt archives of the upstream
+repositories, so no compiler and no prompts), unpacks the GTK 4 files into
+`~/.config/gtk-4.0` so libadwaita applications follow, puts the window buttons
+on the left and uses the Inter font when `fonts-inter` is installed. Use
+`--color dark` for the dark variant. Requirements: `git`, `xz-utils`,
+`libglib2.0-bin`.
+
+Every setting it changes, and the previous `~/.config/gtk-4.0`, is backed up
+first; `scripts/install-appearance.sh --restore` (also run by
+`uninstall.sh`) puts them back, except values you changed afterwards.
+
+WhiteSur is a separate project by Vince Liuice (GTK theme: MIT; icons and
+cursors: GPL-3.0). Its artwork is original and is downloaded from its own
+repositories; it is not part of this repository.
 
 ## Disable, recover, uninstall
 
@@ -166,7 +213,7 @@ blur for that surface (tint only), and fading ancestors pause it.
 
 ### Dock settings that Glass Shell changes
 
-Only three keys of `org.gnome.shell.extensions.dash-to-dock`, and only when
+Only these keys of `org.gnome.shell.extensions.dash-to-dock`, and only when
 "Préréglage bas et centré" is on:
 
 | Key | Value | When |
@@ -174,6 +221,8 @@ Only three keys of `org.gnome.shell.extensions.dash-to-dock`, and only when
 | `dock-position` | `'BOTTOM'` | Once |
 | `extend-height` | `false` | Once |
 | `dash-max-icon-size` | icon size preference | Once, and whenever that preference changes |
+| `show-apps-at-top` | `true` (applications button first) | Once |
+| `running-indicator-style`, `custom-theme-*running-dots*` | small neutral dots | Once |
 
 The previous value of each is written to
 `~/.local/state/glass-shell/dock-backup.tsv` the first time. A value set once
@@ -202,7 +251,15 @@ that uses it, with what happens when it disappears:
 | dockAdapter.js | `dash._box` | Hover magnification off |
 | dockAdapter.js | `dock._slider.slideX` | Blur stays on while hidden |
 | surfaceController.js | `Main.messageTray._bannerBin` | Banners unstyled |
-| surfaceController.js | `statusArea.quickSettings`, `statusArea.dateMenu` | Menu unstyled |
+| surfaceController.js | `BoxPointer.prototype.open` (wrapped, restored on disable) | Menus unstyled |
+| surfaceController.js | `OsdWindow.prototype.show`, `osdWindow._hbox` | Volume pop-up unstyled |
+| surfaceController.js | `SwitcherPopup.prototype.show`, `_switcherList` | Alt+Tab unstyled |
+| surfaceController.js | `Main.panel._rightBox` | Clock stays centred |
+
+Popup menus are normally always rendered offscreen (`BoxPointer`), which
+would hand the background blur an empty buffer. While a menu wears glass it is
+only redirected offscreen during its fade animation, and the blur pauses for
+that time.
 
 ## Performance
 

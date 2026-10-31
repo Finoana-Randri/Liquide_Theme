@@ -1,0 +1,6 @@
+{
+  "uuid": "glass-shell-harness@test",
+  "name": "Glass Shell visual test harness",
+  "description": "Test-only: drives the pointer, menus and windows and saves screenshots. Never ship it.",
+  "shell-version": ["46", "47", "48", "49", "50"]
+}

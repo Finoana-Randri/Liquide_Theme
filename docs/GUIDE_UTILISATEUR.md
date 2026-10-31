@@ -33,6 +33,23 @@ gnome-extensions enable glass-shell@finoana-randri.github.io
 Au premier lancement, le dock est placé en bas et centré. Les anciennes
 valeurs du dock sont sauvegardées pour pouvoir les remettre plus tard.
 
+## Apparence façon macOS (icônes, fenêtres, curseurs)
+
+```bash
+scripts/install-appearance.sh --color light
+```
+
+Le script installe pour votre utilisateur les icônes, les curseurs et le
+thème des fenêtres WhiteSur (projet libre aux dessins originaux), place les
+boutons des fenêtres à gauche et utilise la police Inter si elle est
+installée (`sudo apt install fonts-inter`). Remplacez `light` par `dark` pour
+la variante sombre. Les anciens réglages sont sauvegardés ; pour revenir en
+arrière :
+
+```bash
+scripts/install-appearance.sh --restore
+```
+
 ## Régler
 
 ```bash
@@ -51,7 +68,10 @@ survol. Le bouton « Ouvrir » donne accès aux réglages d'Ubuntu Dock (masquag
 automatique, écran utilisé, etc.).
 
 **Surfaces** — activez ou désactivez séparément le dock, la barre supérieure,
-les réglages rapides, le menu calendrier et les bannières de notification.
+les réglages rapides, le menu calendrier, les autres menus (barre, clic droit
+du dock, aperçus de fenêtres), les bannières de notification, l'affichage du
+volume et le sélecteur Alt+Tab. « Barre de bureau fine » affine la barre
+supérieure, place l'horloge à droite et les notifications en haut à droite.
 
 **Performance** — profils Qualité, Équilibré (par défaut) et Économie ; effets
 réduits ; transparence réduite. La rubrique Maintenance permet de rétablir les

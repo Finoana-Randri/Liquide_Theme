@@ -14,8 +14,11 @@ import {addLater, removeLater} from './compat.js';
 // so this is what keeps the blur from leaking past rounded corners.
 const CORNER_INSET_RATIO = 1 - Math.SQRT1_2;
 
+// Set GLASS_SHELL_DEBUG=1 in the shell environment to trace geometry sync.
+const DEBUG = Boolean(GLib.getenv('GLASS_SHELL_DEBUG'));
+
 const LIGHT_TINT = [255, 255, 255];
-const DARK_TINT = [38, 38, 42];
+const DARK_TINT = [28, 28, 32];
 
 // Effects created by this extension, so conflict detection can ignore them.
 const ownEffects = new WeakSet();
@@ -64,8 +67,9 @@ function allocationInAncestor(actor, ancestor) {
 
 function tintStyle(look) {
     const color = look.scheme === 'dark' ? DARK_TINT : LIGHT_TINT;
-    // The gradient start is the static top reflection; nothing animates it.
-    const top = look.tintAlpha + look.highlight * 0.14;
+    // Slightly denser at the top, like light caught in the upper edge of a
+    // pane of glass. The gradient is static; nothing animates it.
+    const top = look.tintAlpha + look.highlight * (look.scheme === 'dark' ? 0.06 : 0.16);
     let css = `border-radius: ${look.radius}px;` +
         ' background-gradient-direction: vertical;' +
         ` background-gradient-start: ${rgba(color, top)};` +
@@ -75,27 +79,35 @@ function tintStyle(look) {
     return css;
 }
 
+// A soft light glow along the inside of the edges gives the pane its
+// thickness. With the inset corner strategy it also covers the thin band
+// that the blurred rectangle does not reach.
+function glowStyle(look) {
+    const inset = look.cornerStrategy === 'inset' ? cornerInset(look.radius) : 0;
+    const blur = Math.max(6, inset * 2 + 4);
+    const spread = Math.ceil(inset / 2);
+    return `border-radius: ${look.radius}px;` +
+        ` box-shadow: inset 0 0 ${blur}px ${spread}px ${rgba(LIGHT_TINT, look.glowAlpha)};`;
+}
+
+// The rim: a hairline border plus a crisp specular line along the top edge.
 function rimStyle(look) {
     const border = rgba(LIGHT_TINT, look.borderAlpha);
     const edges = look.rimEdges === 'bottom'
-        ? `border-width: 0 0 1px 0; border-color: ${border};`
+        ? `border-width: 0 0 1px 0; border-color: ${rgba(look.scheme === 'dark' ? LIGHT_TINT : [0, 0, 0], 0.08)};`
         : `border: 1px solid ${border};`;
-    // With the inset corner strategy, a soft inner glow covers the thin band
-    // along the edges that the blurred rectangle does not reach.
-    const inset = look.cornerStrategy === 'inset' ? cornerInset(look.radius) : 0;
-    const blur = Math.max(4, inset * 2);
-    const spread = Math.ceil(inset / 2);
-    const glowColor = look.scheme === 'dark' ? DARK_TINT : LIGHT_TINT;
-    const glow = look.rimGlowAlpha + look.highlight * 0.1;
+    const specular = look.rimEdges === 'bottom' ? 0 : look.specularAlpha * (0.4 + look.highlight * 0.6);
     return `border-radius: ${look.radius}px; ${edges}` +
-        ` box-shadow: inset 0 1px ${blur}px ${spread}px ${rgba(glowColor, glow)};`;
+        ` box-shadow: inset 0 1px 0 0 ${rgba(LIGHT_TINT, specular)};`;
 }
 
 export class GlassSurface {
     // `host` receives the glass actors; `target` is the actor whose
     // allocation the glass follows. `below` optionally names a child of
-    // `host` the glass must be painted under.
-    constructor({id, host, target, below = null}) {
+    // `host` the glass must be painted under. `follow` is a sibling whose
+    // opacity and visibility the glass copies, for popups that cannot hold
+    // an extra child because they allocate their children by hand.
+    constructor({id, host, target, below = null, follow = null}) {
         this._host = host;
         this._target = target;
         this._look = null;
@@ -121,9 +133,11 @@ export class GlassSurface {
         });
         this._blurLayer = new St.Widget({style_class: 'glass-shell-blur', reactive: false});
         this._tint = new St.Widget({style_class: 'glass-shell-tint', reactive: false});
+        this._glow = new St.Widget({style_class: 'glass-shell-glow', reactive: false});
         this._rim = new St.Widget({style_class: 'glass-shell-rim', reactive: false});
         this._wrapper.add_child(this._blurLayer);
         this._wrapper.add_child(this._tint);
+        this._wrapper.add_child(this._glow);
         this._wrapper.add_child(this._rim);
 
         if (below)
@@ -132,6 +146,22 @@ export class GlassSurface {
             host.insert_child_at_index(this._wrapper, 0);
 
         this._wrapper.connectObject('destroy', () => this._onWrapperDestroyed(), this);
+
+        this._follow = follow;
+        if (follow) {
+            this._wrapper.opacity = follow.opacity;
+            this._wrapper.visible = follow.visible;
+            follow.connectObject(
+                'notify::opacity', () => {
+                    this._wrapper.opacity = follow.opacity;
+                    this._updateBlurState();
+                },
+                'notify::visible', () => {
+                    this._wrapper.visible = follow.visible && !this._hidden;
+                    this._updateBlurState();
+                },
+                this);
+        }
 
         this._ancestors = [];
         for (let actor = this._wrapper.get_parent(); actor && actor !== global.stage; actor = actor.get_parent())
@@ -143,9 +173,12 @@ export class GlassSurface {
             actor.offscreen_redirect & Clutter.OffscreenRedirect.ALWAYS);
 
         // Every actor between the target and the host can move the target.
+        // The host itself is included: when it is the target, its first
+        // allocation only arrives after the glass was created.
         this._geometrySources = [];
         for (let actor = target; actor && actor !== host; actor = actor.get_parent())
             this._geometrySources.push(actor);
+        this._geometrySources.push(host);
 
         const queueSync = () => this._queueSync();
         for (const actor of this._geometrySources)
@@ -167,6 +200,7 @@ export class GlassSurface {
             return;
         this._look = look;
         this._tint.set_style(tintStyle(look));
+        this._glow.set_style(glowStyle(look));
         this._rim.set_style(rimStyle(look));
         this._wrapper.remove_style_class_name(look.scheme === 'dark' ? 'glass-shell-light' : 'glass-shell-dark');
         this._wrapper.add_style_class_name(look.scheme === 'dark' ? 'glass-shell-dark' : 'glass-shell-light');
@@ -181,7 +215,7 @@ export class GlassSurface {
         if (this._destroyed || this._hidden === hidden)
             return;
         this._hidden = hidden;
-        this._wrapper.visible = !hidden;
+        this._wrapper.visible = !hidden && (this._follow?.visible ?? true);
         this._updateBlurState();
     }
 
@@ -223,7 +257,10 @@ export class GlassSurface {
                 this._effect.brightness = this._look.blurBrightness;
         }
 
-        const opaque = this._ancestors.every(actor => actor.opacity === 255);
+        // A blur on an empty actor asks Cogl for a zero-sized texture.
+        const sized = this._blurLayer.visible && this._blurLayer.width >= 1 && this._blurLayer.height >= 1;
+        const opaque = sized && this._wrapper.opacity === 255 &&
+            this._ancestors.every(actor => actor.opacity === 255);
         this._effect.enabled = opaque && !this._hidden && !this._suspended;
     }
 
@@ -242,15 +279,27 @@ export class GlassSurface {
             this._sync();
             return GLib.SOURCE_REMOVE;
         });
+        // A later queued during layout runs on the next frame; make sure
+        // there is one, or a popup that stops moving keeps an unsized glass.
+        global.stage.queue_redraw();
     }
 
     _sync() {
         if (this._destroyed || !this._look)
             return;
-        if (!this._target.has_allocation() || !this._wrapper.has_allocation())
+        // has_allocation() is false whenever a relayout is pending, and some
+        // menus (quick settings) queue one on every frame. The last
+        // allocation is still the one on screen, so use it once it exists.
+        const targetBox = this._target.get_allocation_box();
+        if (targetBox.get_width() < 1 || targetBox.get_height() < 1 || !this._wrapper.get_parent()) {
+            if (DEBUG)
+                console.log(`Glass Shell: ${this._wrapper.name} waits for a first allocation`);
             return;
+        }
 
         const rect = allocationInAncestor(this._target, this._host);
+        if (DEBUG)
+            console.log(`Glass Shell: ${this._wrapper.name} sync ${JSON.stringify(rect)}`);
         if (!rect)
             return;
         const origin = this._wrapper.get_allocation_box();
@@ -273,7 +322,7 @@ export class GlassSurface {
         this._geometry = geometry;
 
         const {x, y, width, height} = geometry;
-        for (const layer of [this._tint, this._rim]) {
+        for (const layer of [this._tint, this._glow, this._rim]) {
             layer.set_position(x, y);
             layer.set_size(width, height);
         }
@@ -283,6 +332,7 @@ export class GlassSurface {
         this._blurLayer.visible = blurWidth > 0 && blurHeight > 0;
         this._blurLayer.set_position(x + inset, y + inset);
         this._blurLayer.set_size(Math.max(0, blurWidth), Math.max(0, blurHeight));
+        this._updateBlurState();
     }
 
     _onWrapperDestroyed() {
@@ -300,6 +350,7 @@ export class GlassSurface {
             actor.disconnectObject(this);
         for (const actor of this._ancestors)
             actor.disconnectObject(this);
+        this._follow?.disconnectObject(this);
         St.ThemeContext.get_for_stage(global.stage).disconnectObject(this);
     }
 

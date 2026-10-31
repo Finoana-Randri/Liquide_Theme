@@ -29,6 +29,9 @@ const DOCK_PROVIDERS = [
 const DOCK_CONTAINER_NAME = 'dashtodockContainer';
 const PRESS_SCALE = 0.94;
 const PRESS_DURATION_MS = 80;
+// Share of the full magnification given to the hovered icon (distance 0)
+// and to its neighbours.
+const NEIGHBOUR_WAVE = [1, 0.45, 0.15];
 
 function findDescendant(root, predicate, maxDepth = 8) {
     if (!root)
@@ -58,6 +61,7 @@ class IconFeedback {
         this._dash = dash;
         this._iconBox = dash._box ?? null;
         this._buttons = new Set();
+        this._order = [];
         this._options = {magnify: false, durationMs: 0};
         this._scanId = 0;
 
@@ -69,8 +73,7 @@ class IconFeedback {
 
     setOptions(options) {
         this._options = options;
-        for (const button of this._buttons)
-            this._update(button);
+        this._updateAll();
     }
 
     _queueScan() {
@@ -84,34 +87,36 @@ class IconFeedback {
     }
 
     _scan() {
-        const current = new Set();
+        const current = [];
         for (const item of this._iconBox?.get_children() ?? []) {
             const button = item.child ?? item.get_first_child();
             if (button instanceof St.Button)
-                current.add(button);
+                current.push(button);
         }
         const showApps = this._dash.showAppsButton;
         if (showApps instanceof St.Button)
-            current.add(showApps);
+            current.push(showApps);
 
         for (const button of [...this._buttons]) {
-            if (!current.has(button))
+            if (!current.includes(button))
                 this._release(button);
         }
         for (const button of current) {
             if (!this._buttons.has(button))
                 this._track(button);
         }
+        // Visual order, so neighbours of the hovered icon can be found.
+        this._order = current;
+        this._updateAll();
     }
 
     _track(button) {
         this._buttons.add(button);
         button.connectObject(
-            'notify::hover', () => this._update(button),
-            'notify::pressed', () => this._update(button),
+            'notify::hover', () => this._updateAll(),
+            'notify::pressed', () => this._updateAll(),
             'destroy', () => this._buttons.delete(button),
             this);
-        this._update(button);
     }
 
     _release(button) {
@@ -124,14 +129,25 @@ class IconFeedback {
         }
     }
 
-    _update(button) {
+    // The hovered icon grows the most and its neighbours follow with a
+    // smaller wave. Every step stays inside the button padding computed in
+    // runtimeStyle.js, so icons never overlap or get clipped.
+    _updateAll() {
+        const order = (this._order ?? []).filter(button => this._buttons.has(button));
+        const hovered = this._options.magnify ? order.findIndex(button => button.hover) : -1;
+        order.forEach((button, index) => {
+            const distance = hovered < 0 ? Infinity : Math.abs(index - hovered);
+            const wave = NEIGHBOUR_WAVE[distance] ?? 0;
+            this._update(button, 1 + (MAGNIFICATION - 1) * wave);
+        });
+    }
+
+    _update(button, target) {
         const icon = findIcon(button);
         if (!icon)
             return;
-        let scale = this._options.magnify && button.hover ? MAGNIFICATION : 1;
-        if (button.pressed)
-            scale *= PRESS_SCALE;
-        if (icon.scale_x === scale && !icon.get_transition('scale-x'))
+        const scale = button.pressed ? target * PRESS_SCALE : target;
+        if (Math.abs(icon.scale_x - scale) < 0.001 && !icon.get_transition('scale-x'))
             return;
         // The press is shortened so a click is felt immediately.
         const duration = button.pressed
@@ -368,6 +384,14 @@ export class DockAdapter {
         this._preset.ensure('dock-position', new GLib.Variant('s', 'BOTTOM'));
         this._preset.ensure('extend-height', new GLib.Variant('b', false));
         this._preset.ensure('dash-max-icon-size', new GLib.Variant('i', look.iconSize), {owned: true});
+        // Desktop-style dock: the applications button first, and small
+        // neutral dots instead of the coloured running indicators.
+        this._preset.ensure('show-apps-at-top', new GLib.Variant('b', true));
+        this._preset.ensure('running-indicator-style', new GLib.Variant('s', 'DOT'));
+        this._preset.ensure('custom-theme-customize-running-dots', new GLib.Variant('b', true));
+        this._preset.ensure('custom-theme-running-dots-color', new GLib.Variant('s', 'rgb(142,142,150)'));
+        this._preset.ensure('custom-theme-running-dots-border-color', new GLib.Variant('s', 'rgb(142,142,150)'));
+        this._preset.ensure('custom-theme-running-dots-border-width', new GLib.Variant('i', 0));
     }
 
     destroy() {

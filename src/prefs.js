@@ -208,8 +208,17 @@ export default class GlassShellPreferences extends ExtensionPreferences {
         addSwitch(group, settings, 'surface-top-bar', 'Barre supérieure');
         addSwitch(group, settings, 'surface-quick-settings', 'Réglages rapides');
         addSwitch(group, settings, 'surface-calendar', 'Menu calendrier');
+        addSwitch(group, settings, 'surface-menus', 'Autres menus',
+            'Menus de la barre, clic droit du dock, aperçus de fenêtres.');
         addSwitch(group, settings, 'surface-notifications', 'Bannières de notification');
+        addSwitch(group, settings, 'surface-osd', 'Volume et luminosité');
+        addSwitch(group, settings, 'surface-switcher', 'Sélecteur Alt+Tab');
         page.add(group);
+
+        const layout = new Adw.PreferencesGroup({title: 'Disposition'});
+        addSwitch(layout, settings, 'macos-layout', 'Barre de bureau fine',
+            'Barre plus fine, horloge à droite et notifications en haut à droite.');
+        page.add(layout);
         return page;
     }
 

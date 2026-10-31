@@ -99,6 +99,7 @@ export class DockPreset {
             this._save();
             if (!current.equal(value))
                 this._settings.set_value(key, value);
+            Gio.Settings.sync();
             return;
         }
 
@@ -107,6 +108,7 @@ export class DockPreset {
             this._save();
             if (!current.equal(value))
                 this._settings.set_value(key, value);
+            Gio.Settings.sync();
         }
     }
 

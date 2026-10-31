@@ -1,0 +1,4 @@
+node_modules
+tests/visual/out
+dist
+.git
