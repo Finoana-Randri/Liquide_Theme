@@ -128,7 +128,8 @@ Installs, for the current user only, pinned versions of the WhiteSur icon
 theme, cursors and GTK theme (from the prebuilt archives of the upstream
 repositories, so no compiler and no prompts), unpacks the GTK 4 files into
 `~/.config/gtk-4.0` so libadwaita applications follow, puts the window buttons
-on the left and uses the Inter font when `fonts-inter` is installed. Use
+on the left, shows the weekday in the clock, sets the project's light and
+dark wallpapers and uses the Inter font when `fonts-inter` is installed. Use
 `--color dark` for the dark variant. Requirements: `git`, `xz-utils`,
 `libglib2.0-bin`.
 
@@ -276,6 +277,12 @@ nothing runs between frames. The measurement protocol is in
 - Reduced effects / reduced transparency switches in the preferences.
 - Text surfaces (top bar, menus, banners) keep a minimum tint for legibility.
 - Keyboard focus on dock icons uses an orange ring and a light fill.
+
+## Wallpapers
+
+`assets/wallpapers/glass-shell-dawn.jpg` and `glass-shell-dusk.jpg` were
+generated for this project with FFmpeg gradient filters and are released
+under the same licence as the code.
 
 ## License
 

@@ -75,6 +75,22 @@
     -minimum-hpadding: 6px;
 }
 
+/* Focused application name, bold like a global menu bar title. */
+.glass-shell-app-name {
+    font-weight: bold;
+    padding: 0 10px 0 6px;
+}
+
+#panel.glass-shell-panel.glass-shell-light .glass-shell-app-name {
+    color: #1d1d1f;
+}
+
+/* The clock reads as plain text at the end of the bar, without a pill. */
+#panel.glass-shell-panel.glass-shell-desktop-layout .clock-display {
+    background-color: transparent;
+    box-shadow: none;
+}
+
 /* Menu rows get a soft translucent highlight instead of an opaque one. */
 .popup-menu-content.glass-shell-menu.glass-shell-dark .popup-menu-item:hover,
 .popup-menu-content.glass-shell-menu.glass-shell-dark .popup-menu-item:focus {
@@ -92,4 +108,26 @@
     background-color: transparent;
     box-shadow: none;
     border-color: transparent;
+}
+
+/* Symbolic dock icons (applications grid) follow the glass scheme so they
+ * stay visible on a light pane. */
+#dashtodockContainer.glass-shell-dock.glass-shell-light .show-apps .overview-icon {
+    color: #1d1d1f;
+}
+
+#dashtodockContainer.glass-shell-dock.glass-shell-dark .show-apps .overview-icon {
+    color: #f5f5f7;
+}
+
+/* Calendar header: full-strength text on glass instead of the dimmed theme
+ * colour, which falls below a readable contrast over a busy background. */
+.popup-menu-content.glass-shell-menu.glass-shell-dark .datemenu-today-button .day-label,
+.popup-menu-content.glass-shell-menu.glass-shell-dark .datemenu-today-button .date-label {
+    color: #f5f5f7;
+}
+
+.popup-menu-content.glass-shell-menu.glass-shell-light .datemenu-today-button .day-label,
+.popup-menu-content.glass-shell-menu.glass-shell-light .datemenu-today-button .date-label {
+    color: #1d1d1f;
 }

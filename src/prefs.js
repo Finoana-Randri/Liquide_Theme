@@ -177,7 +177,10 @@ export default class GlassShellPreferences extends ExtensionPreferences {
 
         const behaviour = new Adw.PreferencesGroup({title: 'Comportement'});
         addSwitch(behaviour, settings, 'hover-magnification', 'Agrandissement au survol',
-            'Agrandit l\'icône survolée sans déplacer les zones de clic.');
+            'Les icônes grandissent sous le pointeur et leurs voisines s\'écartent.');
+        const magnification = addSlider(behaviour, settings, bindings, 'magnification', 'Taille maximale au survol',
+            {min: 100, max: 200, step: 5, unit: ' %'});
+        settings.bind('hover-magnification', magnification, 'sensitive', Gio.SettingsBindFlags.GET);
         addSwitch(behaviour, settings, 'allow-dash-to-dock', 'Habiller aussi Dash to Dock',
             'Portage non validé dans la configuration de référence.');
         page.add(behaviour);

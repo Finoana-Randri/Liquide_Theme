@@ -7,8 +7,8 @@
 //   dock._box, dock.dash   -> searched by actor name (dashtodockBox, dash)
 //   dock._slider.slideX    -> blur simply stays on while the dock is hidden
 //   dash._background       -> searched by style class (dash-background)
-//   dash._box              -> hover magnification is turned off
-//   dash.showAppsButton    -> the show-apps button is not magnified
+//   dash._box              -> magnification is turned off
+//   dash._showAppsIcon     -> the applications button is not magnified
 
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
@@ -19,7 +19,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {addLater, extensionPath, isExtensionActive, KNOWN_BLUR_EXTENSIONS, removeLater} from './compat.js';
 import {DockPreset, lookupDockSettings} from './dockPreset.js';
 import {findForeignBlur, GlassSurface} from './glassEffect.js';
-import {MAGNIFICATION} from './settings.js';
 
 const DOCK_PROVIDERS = [
     {uuid: 'ubuntu-dock@ubuntu.com', label: 'Ubuntu Dock', reference: true},
@@ -29,9 +28,10 @@ const DOCK_PROVIDERS = [
 const DOCK_CONTAINER_NAME = 'dashtodockContainer';
 const PRESS_SCALE = 0.94;
 const PRESS_DURATION_MS = 80;
-// Share of the full magnification given to the hovered icon (distance 0)
-// and to its neighbours.
-const NEIGHBOUR_WAVE = [1, 0.45, 0.15];
+// Pointer distance, in icon widths, over which magnification fades out.
+const MAGNIFY_REACH = 2.6;
+// Set GLASS_SHELL_DEBUG=1 in the shell environment to trace magnification.
+const DEBUG = Boolean(GLib.getenv('GLASS_SHELL_DEBUG'));
 
 function findDescendant(root, predicate, maxDepth = 8) {
     if (!root)
@@ -50,30 +50,69 @@ function findDescendant(root, predicate, maxDepth = 8) {
 }
 
 function findIcon(button) {
-    return findDescendant(button, actor => actor instanceof St.Icon, 4);
+    // Container > button > BaseIcon > box > icon bin > St.Icon: six levels deep.
+    return findDescendant(button, actor => actor instanceof St.Icon, 7);
 }
 
-// Hover magnification and press feedback. Only the icon is scaled, around its
-// centre, inside the padding of its button: the button allocation, and so the
-// click target, never moves.
+// Magnification that follows the pointer along the dock: each icon grows
+// with its closeness to the pointer, from its bottom edge, and the items
+// move apart so they never overlap. The dock glass widens by the same amount.
+// Everything is a transform (scale and translation), so nothing is laid out
+// again while the pointer moves.
 class IconFeedback {
-    constructor(dash) {
+    constructor(dash, box, onSpread) {
         this._dash = dash;
+        this._box = box;
         this._iconBox = dash._box ?? null;
-        this._buttons = new Set();
-        this._order = [];
-        this._options = {magnify: false, durationMs: 0};
+        this._onSpread = onSpread;
+        // The icon row sits in a scroll view whose viewports clip to it, which
+        // would cut magnified icons. The dock box keeps transparent room
+        // around the row (runtime stylesheet), so drawing past it is safe.
+        this._unclipped = [];
+        for (let actor = this._iconBox; actor && actor !== dash; actor = actor.get_parent()) {
+            if ('clip_to_view' in actor && actor.clip_to_view) {
+                actor.clip_to_view = false;
+                this._unclipped.push(actor);
+            }
+        }
+        this._slots = [];
+        this._base = null;
+        this._options = {magnify: false, magnification: 1, durationMs: 0};
         this._scanId = 0;
 
         const queueScan = () => this._queueScan();
         this._iconBox?.connectObject('child-added', queueScan, 'child-removed', queueScan, this);
         dash.connectObject('icon-size-changed', queueScan, this);
+        box.connectObject(
+            'motion-event', (_actor, event) => {
+                this._magnifyAt(event.get_coords()[0]);
+                return Clutter.EVENT_PROPAGATE;
+            },
+            'notify::hover', () => {
+                if (!box.hover && !this._pointerInside())
+                    this._rest();
+            },
+            'leave-event', () => {
+                if (!this._pointerInside())
+                    this._rest();
+                return Clutter.EVENT_PROPAGATE;
+            },
+            this);
         this._queueScan();
     }
 
     setOptions(options) {
         this._options = options;
-        this._updateAll();
+        this._rest();
+    }
+
+    // Icons moving under a still pointer can make St report that the
+    // pointer left the dock; trust the actual pointer position instead.
+    _pointerInside() {
+        const [x, y] = global.get_pointer();
+        const [left, top] = this._box.get_transformed_position();
+        const [width, height] = this._box.get_transformed_size();
+        return x >= left && x < left + width && y >= top && y < top + height;
     }
 
     _queueScan() {
@@ -86,80 +125,130 @@ class IconFeedback {
         });
     }
 
+    // Every visible item of the dock, in screen order: app icons, the
+    // separator and the applications button.
     _scan() {
-        const current = [];
-        for (const item of this._iconBox?.get_children() ?? []) {
-            const button = item.child ?? item.get_first_child();
-            if (button instanceof St.Button)
-                current.push(button);
-        }
-        const showApps = this._dash.showAppsButton;
-        if (showApps instanceof St.Button)
-            current.push(showApps);
-
-        for (const button of [...this._buttons]) {
-            if (!current.includes(button))
-                this._release(button);
-        }
-        for (const button of current) {
-            if (!this._buttons.has(button))
-                this._track(button);
-        }
-        // Visual order, so neighbours of the hovered icon can be found.
-        this._order = current;
-        this._updateAll();
+        for (const slot of this._slots)
+            this._releaseSlot(slot);
+        const actors = [...this._iconBox?.get_children() ?? []];
+        if (this._dash._showAppsIcon)
+            actors.push(this._dash._showAppsIcon);
+        this._slots = actors.filter(actor => actor.visible).map(actor => {
+            const button = actor.child instanceof St.Button ? actor.child : null;
+            button?.connectObject('notify::pressed', () => this._pressChanged(button), this);
+            actor.connectObject('destroy', () => this._queueScan(), this);
+            return {actor, button};
+        });
+        this._base = null;
     }
 
-    _track(button) {
-        this._buttons.add(button);
-        button.connectObject(
-            'notify::hover', () => this._updateAll(),
-            'notify::pressed', () => this._updateAll(),
-            'destroy', () => this._buttons.delete(button),
-            this);
-    }
-
-    _release(button) {
-        this._buttons.delete(button);
-        button.disconnectObject(this);
-        const icon = findIcon(button);
+    _releaseSlot({actor, button}) {
+        button?.disconnectObject(this);
+        actor.disconnectObject(this);
+        actor.remove_all_transitions();
+        actor.translation_x = 0;
+        const icon = findIcon(actor);
         if (icon) {
             icon.remove_all_transitions();
             icon.set_scale(1, 1);
         }
     }
 
-    // The hovered icon grows the most and its neighbours follow with a
-    // smaller wave. Every step stays inside the button padding computed in
-    // runtimeStyle.js, so icons never overlap or get clipped.
-    _updateAll() {
-        const order = (this._order ?? []).filter(button => this._buttons.has(button));
-        const hovered = this._options.magnify ? order.findIndex(button => button.hover) : -1;
-        order.forEach((button, index) => {
-            const distance = hovered < 0 ? Infinity : Math.abs(index - hovered);
-            const wave = NEIGHBOUR_WAVE[distance] ?? 0;
-            this._update(button, 1 + (MAGNIFICATION - 1) * wave);
-        });
+    // Untransformed position and width of every slot, measured once per hover.
+    _measure() {
+        const base = this._slots.filter(slot => slot.actor.get_stage()).map(slot => {
+            const [x] = slot.actor.get_transformed_position();
+            const [width] = slot.actor.get_transformed_size();
+            const left = x - slot.actor.translation_x;
+            return {slot, left, width, center: left + width / 2};
+        }).sort((a, b) => a.left - b.left);
+        return base.length > 0 ? base : null;
     }
 
-    _update(button, target) {
+    _magnifyAt(pointerX) {
+        if (DEBUG && !this._base)
+            console.log(`Glass Shell: magnify at ${pointerX} options ${JSON.stringify(this._options)} slots ${this._slots.length}`);
+        if (!this._options.magnify || this._options.magnification <= 1)
+            return;
+        this._base ??= this._measure();
+        if (!this._base)
+            return;
+
+        const base = this._base;
+        const iconWidth = Math.max(...base.map(item => item.width));
+        const reach = iconWidth * MAGNIFY_REACH;
+        const extra = this._options.magnification - 1;
+        const scales = base.map(item => {
+            const distance = Math.abs(pointerX - item.center);
+            if (distance >= reach || !findIcon(item.slot.actor))
+                return 1;
+            // Cosine falloff: full size under the pointer, smooth to the edge.
+            return 1 + extra * (Math.cos(distance / reach * Math.PI) + 1) / 2;
+        });
+
+        // Lay the grown items out side by side, keeping the gaps between them,
+        // and keep the row centred where it was: the dock grows on both sides.
+        const first = base[0].left;
+        const growth = base.reduce((sum, item, i) => sum + item.width * (scales[i] - 1), 0);
+        let cursor = first - growth / 2;
+        base.forEach((item, i) => {
+            if (i > 0)
+                cursor += item.left - (base[i - 1].left + base[i - 1].width);
+            const center = cursor + item.width * scales[i] / 2;
+            cursor += item.width * scales[i];
+            this._apply(item.slot, scales[i], center - item.center, 0);
+        });
+        this._onSpread(growth / 2, 0);
+        if (DEBUG) {
+            console.log(`Glass Shell: pointer ${Math.round(pointerX)} scales ${scales.map(v => v.toFixed(2)).join(',')} ` +
+                `icons ${base.map(item => findIcon(item.slot.actor)?.scale_x?.toFixed(2) ?? '-').join(',')}`);
+        }
+    }
+
+    _rest() {
+        if (DEBUG)
+            console.log('Glass Shell: magnification rest');
+        const duration = this._options.durationMs;
+        for (const slot of this._slots)
+            this._apply(slot, 1, 0, duration);
+        this._onSpread(0, duration);
+        this._base = null;
+    }
+
+    _pressChanged(button) {
         const icon = findIcon(button);
         if (!icon)
             return;
-        const scale = button.pressed ? target * PRESS_SCALE : target;
-        if (Math.abs(icon.scale_x - scale) < 0.001 && !icon.get_transition('scale-x'))
-            return;
         // The press is shortened so a click is felt immediately.
-        const duration = button.pressed
-            ? Math.min(PRESS_DURATION_MS, this._options.durationMs)
-            : this._options.durationMs;
-        icon.set_pivot_point(0.5, 0.5);
+        const factor = button.pressed ? PRESS_SCALE : 1 / PRESS_SCALE;
+        const scale = icon.scale_x * factor;
         icon.ease({
             scale_x: scale,
             scale_y: scale,
-            duration,
+            duration: Math.min(PRESS_DURATION_MS, this._options.durationMs),
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
+    }
+
+    _apply({actor}, scale, translation, duration) {
+        const icon = findIcon(actor);
+        const mode = Clutter.AnimationMode.EASE_OUT_QUAD;
+        if (icon) {
+            // Grow upwards from the bottom edge, as icons rise out of a dock.
+            icon.set_pivot_point(0.5, 1);
+            if (duration > 0) {
+                icon.ease({scale_x: scale, scale_y: scale, duration, mode});
+            } else {
+                icon.remove_all_transitions();
+                icon.set_scale(scale, scale);
+            }
+        }
+        if (duration > 0) {
+            actor.ease({translation_x: translation, duration, mode});
+        } else {
+            actor.remove_all_transitions();
+            actor.translation_x = translation;
+        }
     }
 
     destroy() {
@@ -167,8 +256,13 @@ class IconFeedback {
         this._scanId = 0;
         this._iconBox?.disconnectObject(this);
         this._dash.disconnectObject(this);
-        for (const button of [...this._buttons])
-            this._release(button);
+        this._box.disconnectObject(this);
+        for (const slot of this._slots)
+            this._releaseSlot(slot);
+        this._slots = [];
+        for (const actor of this._unclipped)
+            actor.clip_to_view = true;
+        this._unclipped = [];
     }
 }
 
@@ -206,7 +300,15 @@ class DockGlass {
             this._syncSuspended();
         }
 
-        this._icons = new IconFeedback(dash);
+        // The dash always renders into an offscreen buffer the size of its
+        // allocation, which would crop magnified icons. Keep the buffer for
+        // its fade animations only.
+        this._dash = dash;
+        this._dashRedirect = dash.offscreen_redirect;
+        dash.set_offscreen_redirect(Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY);
+
+        this._icons = new IconFeedback(dash, box,
+            (spread, duration) => this._surface.setSpread(spread, duration));
     }
 
     get blurSupported() {
@@ -220,7 +322,17 @@ class DockGlass {
 
     setLook(look) {
         this._surface.setLook(look);
-        this._icons.setOptions({magnify: look.magnify, durationMs: look.durationMs});
+        // Lets the stylesheet give symbolic dock icons a readable colour.
+        this._dock.remove_style_class_name(look.scheme === 'dark' ? 'glass-shell-light' : 'glass-shell-dark');
+        this._dock.add_style_class_name(`glass-shell-${look.scheme}`);
+        // Only a bottom dock gets headroom inside its icon buttons.
+        const bottom = this._dock.has_style_class_name('bottom');
+        this._surface.setInsetTop(bottom ? look.magnifyHeadroom : 0);
+        this._icons.setOptions({
+            magnify: look.magnify,
+            magnification: look.magnification,
+            durationMs: look.durationMs,
+        });
     }
 
     destroy() {
@@ -230,7 +342,9 @@ class DockGlass {
         this._dock.disconnectObject(this);
         if (this._dockDestroyed)
             return;
-        this._dock.remove_style_class_name('glass-shell-dock');
+        for (const name of ['glass-shell-dock', 'glass-shell-light', 'glass-shell-dark'])
+            this._dock.remove_style_class_name(name);
+        this._dash.set_offscreen_redirect(this._dashRedirect);
         if (this._background)
             this._background.opacity = this._backgroundOpacity;
     }

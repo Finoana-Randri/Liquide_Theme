@@ -82,6 +82,11 @@
       <default>true</default>
       <summary>Enlarge dock icons on hover</summary>
     </key>
+    <key name="magnification" type="i">
+      <range min="100" max="200"/>
+      <default>160</default>
+      <summary>Largest icon size under the pointer, in percent</summary>
+    </key>
     <key name="allow-dash-to-dock" type="b">
       <default>false</default>
       <summary>Style Dash to Dock as well as Ubuntu Dock</summary>

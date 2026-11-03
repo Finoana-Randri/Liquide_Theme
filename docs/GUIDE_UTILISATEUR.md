@@ -41,7 +41,8 @@ scripts/install-appearance.sh --color light
 
 Le script installe pour votre utilisateur les icônes, les curseurs et le
 thème des fenêtres WhiteSur (projet libre aux dessins originaux), place les
-boutons des fenêtres à gauche et utilise la police Inter si elle est
+boutons des fenêtres à gauche, affiche le jour dans l'horloge, pose les
+fonds d'écran clair et sombre du projet et utilise la police Inter si elle est
 installée (`sudo apt install fonts-inter`). Remplacez `light` par `dark` pour
 la variante sombre. Les anciens réglages sont sauvegardés ; pour revenir en
 arrière :
@@ -64,7 +65,9 @@ sombre ; intensité du flou ; rayon des angles ; intensité des reflets.
 
 **Dock** — préréglage bas et centré ; taille des icônes (32 à 64) ;
 espacement ; marge intérieure ; marge au bord de l'écran ; agrandissement au
-survol. Le bouton « Ouvrir » donne accès aux réglages d'Ubuntu Dock (masquage
+survol (les icônes grandissent sous le pointeur et leurs voisines
+s'écartent) et sa taille maximale. Le bouton « Ouvrir » donne accès aux
+réglages d'Ubuntu Dock (masquage
 automatique, écran utilisé, etc.).
 
 **Surfaces** — activez ou désactivez séparément le dock, la barre supérieure,

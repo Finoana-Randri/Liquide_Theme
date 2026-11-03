@@ -7,6 +7,7 @@
 // Internal shell API used here, and the fallback when it disappears:
 //   Main.layoutManager.panelBox      -> top bar left unstyled
 //   Main.panel._rightBox             -> clock stays in the centre
+//   Main.panel._leftBox              -> no application name in the bar
 //   BoxPointer.prototype.open        -> menus left unstyled
 //   OsdWindow.prototype.show, _hbox  -> volume pop-up left unstyled
 //   SwitcherPopup.prototype.show,
@@ -16,6 +17,7 @@
 
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as BoxPointer from 'resource:///org/gnome/shell/ui/boxpointer.js';
@@ -72,6 +74,37 @@ function hookMethod(proto, name, hook, {after = false} = {}) {
     };
 }
 
+// Name of the focused application, in bold at the start of the top bar,
+// as on desktops with a global menu bar.
+class AppNameLabel {
+    constructor() {
+        this._label = new St.Label({
+            style_class: 'glass-shell-app-name',
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._tracker = Shell.WindowTracker.get_default();
+        this._tracker.connectObject('notify::focus-app', () => this._sync(), this);
+        Main.overview.connectObject(
+            'showing', () => this._sync(),
+            'hidden', () => this._sync(),
+            this);
+        Main.panel._leftBox.add_child(this._label);
+        this._sync();
+    }
+
+    _sync() {
+        const app = Main.overview.visible ? null : this._tracker.focus_app;
+        this._label.text = app?.get_name() ?? '';
+        this._label.visible = Boolean(app);
+    }
+
+    destroy() {
+        this._tracker.disconnectObject(this);
+        Main.overview.disconnectObject(this);
+        this._label.destroy();
+    }
+}
+
 class PanelGlass {
     constructor() {
         this._panel = Main.panel;
@@ -79,6 +112,7 @@ class PanelGlass {
         this._panel.add_style_class_name('glass-shell-panel');
         this._surface = new GlassSurface({id: 'top-bar', host: this._host, target: this._panel});
         this._clockHome = null;
+        this._appName = null;
 
         // The overview draws its own transparent top bar.
         Main.overview.connectObject(
@@ -113,6 +147,7 @@ class PanelGlass {
             rightBox.add_child(container);
             Main.messageTray.bannerAlignment = Clutter.ActorAlign.END;
             this._panel.add_style_class_name('glass-shell-desktop-layout');
+            this._appName = new AppNameLabel();
         } else if (!enabled && this._clockHome) {
             const {parent, index, bannerAlignment} = this._clockHome;
             this._clockHome = null;
@@ -120,6 +155,8 @@ class PanelGlass {
             parent.insert_child_at_index(container, Math.max(0, index));
             Main.messageTray.bannerAlignment = bannerAlignment;
             this._panel.remove_style_class_name('glass-shell-desktop-layout');
+            this._appName?.destroy();
+            this._appName = null;
         }
     }
 

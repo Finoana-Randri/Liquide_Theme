@@ -171,6 +171,18 @@ set_desktop org.gnome.desktop.interface icon-theme "'$icon_theme'"
 set_desktop org.gnome.desktop.interface cursor-theme "'WhiteSur-cursors'"
 set_desktop org.gnome.desktop.interface color-scheme "'$scheme'"
 set_desktop org.gnome.desktop.wm.preferences button-layout "'close,minimize,maximize:'"
+# Day, date and time in the top bar clock.
+set_desktop org.gnome.desktop.interface clock-show-weekday "true"
+set_desktop org.gnome.desktop.interface clock-show-date "true"
+
+# Original wallpapers made for this project: a light one and a dark one that
+# GNOME switches between with the colour scheme.
+wallpaper_dir="${XDG_DATA_HOME:-$HOME/.local/share}/backgrounds/glass-shell"
+mkdir -p "$wallpaper_dir"
+cp "$REPO_ROOT/assets/wallpapers/glass-shell-dawn.jpg" "$REPO_ROOT/assets/wallpapers/glass-shell-dusk.jpg" "$wallpaper_dir/"
+set_desktop org.gnome.desktop.background picture-uri "'file://$wallpaper_dir/glass-shell-dawn.jpg'"
+set_desktop org.gnome.desktop.background picture-uri-dark "'file://$wallpaper_dir/glass-shell-dusk.jpg'"
+set_desktop org.gnome.desktop.background picture-options "'zoom'"
 if has_command fc-list && fc-list | grep -qi 'Inter'; then
     set_desktop org.gnome.desktop.interface font-name "'Inter 10'"
     set_desktop org.gnome.desktop.wm.preferences titlebar-font "'Inter Semi-Bold 10'"

@@ -28,5 +28,6 @@ WORKDIR /home/tester
 # every test run starts from the same themed desktop.
 COPY --chown=tester scripts /opt/glass-shell/scripts
 COPY --chown=tester src /opt/glass-shell/src
+COPY --chown=tester assets /opt/glass-shell/assets
 ENV USER=tester
 RUN dbus-run-session -- bash /opt/glass-shell/scripts/install-appearance.sh --color light

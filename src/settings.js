@@ -10,8 +10,6 @@ const CHANGE_DELAY_MS = 150;
 // Converts the 0-100 intensity to a Shell.BlurEffect radius in pixels.
 const BLUR_RADIUS_PER_POINT = 0.8;
 
-export const MAGNIFICATION = 1.12;
-
 const PROFILES = {
     quality: {blurFactor: 1, highlightFactor: 1, opacityBoost: 0, durationMs: 220},
     balanced: {blurFactor: 0.85, highlightFactor: 0.9, opacityBoost: 0, durationMs: 180},
@@ -79,6 +77,7 @@ export class GlassSettings {
             dockPadding: s.get_int('dock-padding'),
             dockMargin: s.get_int('dock-margin'),
             hoverMagnification: s.get_boolean('hover-magnification'),
+            magnification: s.get_int('magnification'),
             allowDashToDock: s.get_boolean('allow-dash-to-dock'),
             surfaces: {
                 dock: s.get_boolean('surface-dock'),
@@ -144,7 +143,12 @@ export function resolveLook(values, system) {
     const magnify = values.hoverMagnification && animations;
     // How far a magnified icon grows past its edge, so padding can absorb it
     // and neighbours never overlap.
-    const magnifyGrowth = magnify ? Math.ceil(values.iconSize * (MAGNIFICATION - 1) / 2) + 1 : 0;
+    const magnification = values.magnification / 100;
+    // Headroom above the icons for them to grow into without being clipped.
+    const magnifyHeadroom = magnify ? Math.ceil(values.iconSize * (magnification - 1)) + 2 : 0;
+    // Room on each side for the row to spread into: neighbours within about
+    // two and a half icons grow, so the row gains up to about 1.6 icon widths.
+    const magnifySideRoom = magnify ? Math.ceil((values.iconSize + values.iconSpacing) * (magnification - 1) * 1.6) + 4 : 0;
 
     return {
         scheme,
@@ -179,7 +183,9 @@ export function resolveLook(values, system) {
         animations,
         durationMs: animations ? profile.durationMs : 0,
         magnify,
-        magnifyGrowth,
+        magnification,
+        magnifyHeadroom,
+        magnifySideRoom,
         applyDockPreset: values.applyDockPreset,
         iconSize: values.iconSize,
         iconSpacing: values.iconSpacing,

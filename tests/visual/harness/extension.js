@@ -144,7 +144,7 @@ export default class Harness extends Extension {
             const effects = actor.get_effects().map(e => e.constructor.name).join(',');
             lines.push(`${'  '.repeat(depth)}${actor.constructor.name} name=${actor.name} class=${actor.style_class ?? ''} ` +
                 `alloc=${box.x1.toFixed(0)},${box.y1.toFixed(0)} ${box.get_width().toFixed(0)}x${box.get_height().toFixed(0)} ` +
-                `opacity=${actor.opacity} visible=${actor.visible} ${bg} style=${actor.style ?? ''} fx=${effects}`);
+                `opacity=${actor.opacity} visible=${actor.visible} redir=${actor.offscreen_redirect} clip=${actor.has_clip ? actor.get_clip().map(v => Math.round(v)).join(":") : false}/${actor.clip_to_allocation}/${actor.clip_to_view ?? "-"} ${bg} fx=${effects}`);
             if (depth < 7)
                 actor.get_children().forEach(c => walk(c, depth + 1));
         };
@@ -158,12 +158,12 @@ export default class Harness extends Extension {
             button._menu?.close(BoxPointer.PopupAnimation.NONE);
     }
 
-    _setBackground({color = null, uri = null}) {
+    _setBackground({color = null, uri = null, uriDark = null}) {
         const bg = new Gio.Settings({schema_id: 'org.gnome.desktop.background'});
         if (uri) {
             bg.set_string('picture-options', 'zoom');
             bg.set_string('picture-uri', uri);
-            bg.set_string('picture-uri-dark', uri);
+            bg.set_string('picture-uri-dark', uriDark ?? uri);
         } else {
             bg.set_string('picture-options', 'none');
             bg.set_string('color-shading-type', 'solid');
@@ -221,14 +221,23 @@ export default class Harness extends Extension {
         await sleep(2500);
         Main.overview.hide();
         await waitFor(() => !Main.overview.visible && !Main.overview.animationInProgress, 10000);
-        if (WALLPAPER)
-            this._setBackground({uri: WALLPAPER});
+        // Keep whatever wallpaper the appearance script installed.
+        const background = new Gio.Settings({schema_id: 'org.gnome.desktop.background'});
+        this._wallpaper = WALLPAPER || background.get_string('picture-uri');
+        this._wallpaperDark = WALLPAPER || background.get_string('picture-uri-dark');
         this._setScheme(true);
         this._pointerTo(W / 2, H / 3);
         await sleep(2500);
 
         if (GLib.getenv('GLASS_QUICK')) {
-            await this._openMenu(Main.panel.statusArea.quickSettings.menu, 'quick-qs');
+            const quickButtons = this._dockButtons();
+            const [qx, qy] = center(quickButtons[2] ?? quickButtons[0]);
+            this._pointerTo(qx - 30, qy);
+            await sleep(300);
+            this._pointerTo(qx, qy);
+            await sleep(900);
+            await this._shot('quick-dock-loupe');
+            this._dumpDock();
             return;
         }
 
@@ -241,6 +250,16 @@ export default class Harness extends Extension {
         this._pointerTo(hx, hy);
         await sleep(900);
         await this._shot('02-dock-survol');
+        // Pointer between two icons: both grow and the row spreads out.
+        if (buttons.length > 2) {
+            const [ax] = center(buttons[1]);
+            const [bx] = center(buttons[2]);
+            this._pointerTo((ax + bx) / 2, hy);
+            await sleep(700);
+            await this._shot('02b-dock-loupe-entre-deux');
+            this._pointerTo(hx, hy);
+            await sleep(500);
+        }
         this._button(Clutter.ButtonState.PRESSED);
         // Shoot before the long-press menu timeout of the dock fires.
         await this._shot('03-dock-clic', 60);
@@ -349,8 +368,7 @@ export default class Harness extends Extension {
         this._setBackground({color: '#e95420'});
         await sleep(1500);
         await this._shot('19-fond-colore-sombre');
-        if (WALLPAPER)
-            this._setBackground({uri: WALLPAPER});
+        this._setBackground({uri: this._wallpaper, uriDark: this._wallpaperDark});
         editor?.unminimize();
         await sleep(1500);
         editor?.move_resize_frame(true, Math.round(W * 0.25), H - 330, 900, 480);

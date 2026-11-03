@@ -117,6 +117,8 @@ export class GlassSurface {
         this._destroyed = false;
         this._syncId = 0;
         this._geometry = null;
+        this._spread = 0;
+        this._insetTop = 0;
 
         this._wrapper = new St.Widget({
             name: `glass-shell-${id}`,
@@ -228,6 +230,41 @@ export class GlassSurface {
         this._updateBlurState();
     }
 
+    // Leave the top `pixels` of the target uncovered, for a dock that keeps
+    // transparent headroom above its icons for them to grow into.
+    setInsetTop(pixels) {
+        if (this._destroyed || this._insetTop === pixels)
+            return;
+        this._insetTop = pixels;
+        this._geometry = null;
+        this._queueSync();
+    }
+
+    // Widen the glass by `spread` pixels on each side, for a dock whose
+    // icons move apart under the pointer. Animated when `duration` is set.
+    setSpread(spread, duration = 0) {
+        if (this._destroyed || !this._geometry)
+            return;
+        if (duration === 0 && Math.abs(spread - this._spread) < 0.5)
+            return;
+        this._spread = spread;
+        const {x, y, width, inset} = this._geometry;
+        const mode = Clutter.AnimationMode.EASE_OUT_QUAD;
+        const place = (layer, left, top, layerWidth) => {
+            if (duration > 0) {
+                layer.ease({x: left, width: layerWidth, duration, mode});
+            } else {
+                layer.remove_all_transitions();
+                layer.set_position(left, top);
+                layer.width = layerWidth;
+            }
+        };
+        for (const layer of [this._tint, this._glow, this._rim])
+            place(layer, Math.round(x - spread), y, Math.round(width + 2 * spread));
+        place(this._blurLayer, Math.round(x + inset - spread), y + inset,
+            Math.max(0, Math.round(width - 2 * inset + 2 * spread)));
+    }
+
     get blurActive() {
         return Boolean(this._effect?.enabled);
     }
@@ -307,11 +344,12 @@ export class GlassSurface {
         const inset = this._look.cornerStrategy === 'inset'
             ? cornerInset(this._look.radius * scale)
             : 0;
+        const insetTop = Math.min(this._insetTop * scale, rect.height - 1);
         const geometry = {
             x: Math.round(rect.x - origin.x1),
-            y: Math.round(rect.y - origin.y1),
+            y: Math.round(rect.y - origin.y1 + insetTop),
             width: Math.round(rect.width),
-            height: Math.round(rect.height),
+            height: Math.round(rect.height - insetTop),
             inset,
         };
 
@@ -332,6 +370,11 @@ export class GlassSurface {
         this._blurLayer.visible = blurWidth > 0 && blurHeight > 0;
         this._blurLayer.set_position(x + inset, y + inset);
         this._blurLayer.set_size(Math.max(0, blurWidth), Math.max(0, blurHeight));
+        if (this._spread) {
+            const spread = this._spread;
+            this._spread = 0;
+            this.setSpread(spread);
+        }
         this._updateBlurState();
     }
 

@@ -22,16 +22,14 @@ cp -r /src/. "$EXT_DIR/$UUID/"
 glib-compile-schemas "$EXT_DIR/$UUID/schemas"
 cp -r /harness/. "$EXT_DIR/$HARNESS/"
 
-wallpaper="$(find /usr/share/backgrounds -maxdepth 1 -type f \( -name '*.png' -o -name '*.jpg' \) ! -name '*dimmed*' | sort | head -n 1)"
-export GLASS_WALLPAPER="file://$wallpaper"
+# The wallpaper comes from install-appearance.sh, run when the image was built.
+export GLASS_WALLPAPER=""
 
 gsettings set org.gnome.shell disable-user-extensions false
 gsettings set org.gnome.shell enabled-extensions "['$UUID', '$HARNESS']"
 gsettings set org.gnome.shell favorite-apps "['org.gnome.TextEditor.desktop', 'org.gnome.Calculator.desktop', 'org.gnome.clocks.desktop', 'org.gnome.Characters.desktop']"
 gsettings set org.gnome.shell welcome-dialog-last-shown-version '999'
 gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-gsettings set org.gnome.desktop.background picture-uri "$GLASS_WALLPAPER"
-gsettings set org.gnome.desktop.background picture-uri-dark "$GLASS_WALLPAPER"
 
 rm -f /out/done /out/harness.log
 gnome-shell --headless --virtual-monitor "${GLASS_SIZE:-1600x900}" --mode=ubuntu --no-x11 >/out/shell.log 2>&1 &

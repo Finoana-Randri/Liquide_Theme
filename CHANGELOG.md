@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 — 2026-11-03
+
+- Dock magnification now follows the pointer: icons grow from their bottom
+  edge with a smooth falloff, neighbours move apart and the glass widens with
+  them. Maximum size is a preference (100 to 200 %, 160 % by default).
+- Top bar shows the focused application name in bold at the start; the
+  clock shows day, date and time without a pill.
+- Two original wallpapers (light and dark soft gradients) in
+  `assets/wallpapers`, installed by `install-appearance.sh`, which also turns
+  on the weekday in the clock. Both are backed up and restored as before.
+
 ## 0.2.0 — 2026-10-31
 
 Design rework towards a current macOS-style desktop, checked with real
